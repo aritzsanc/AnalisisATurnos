@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import plotly.express as px
 from bs4 import BeautifulSoup
 import re
  
@@ -16,6 +15,22 @@ def analiza_fichero(file) :
         # Analiza el HTML con BeautifulSoup
         soup = BeautifulSoup(contenido_html, "lxml")
 
+        # Detecta la version del HTML segun el atributo del tooltip en las barras.
+        has_bs_tooltip = soup.find(class_="progress-bar", attrs={"data-bs-title": True}) is not None
+        has_old_tooltip = soup.find(class_="progress-bar", attrs={"data-original-title": True}) is not None
+        if has_bs_tooltip and not has_old_tooltip:
+            html_version = "new"
+            tooltip_attr = "data-bs-title"
+        elif has_old_tooltip and not has_bs_tooltip:
+            html_version = "old"
+            tooltip_attr = "data-original-title"
+        elif has_bs_tooltip:
+            html_version = "new"
+            tooltip_attr = "data-bs-title"
+        else:
+            html_version = "old"
+            tooltip_attr = "data-original-title"
+
         elementos_row = soup.find_all(id=re.compile("^row"))
 
         clases_busqueda = set()  # Usamos un conjunto para evitar duplicados
@@ -26,7 +41,7 @@ def analiza_fichero(file) :
             clases = elemento.get("class", [])
             
             # Añadir las clases que no sean "progress-bar" a la lista de acompañantes
-            clases_busqueda.update(clase for clase in clases if clase != "pro gress-bar")
+            clases_busqueda.update(clase for clase in clases if clase != "progress-bar")
 
         # Convertir el conjunto a lista si se necesita, o imprimir directamente
         clases_busqueda = list(clases_busqueda)
@@ -38,19 +53,22 @@ def analiza_fichero(file) :
         for elemento in elementos_row:
             elemento_id = elemento.get("id")
 
-            # Recorrer cada clase que contiene la información en "data-original-title"
+            # Recorrer cada clase que contiene la información en el atributo tooltip detectado.
             for clase in clases_busqueda:
                 sub_elementos = elemento.find_all(class_=clase)
                 
                 for sub_elemento in sub_elementos:
-                    data_original_title = sub_elemento.get("data-original-title", "")
+                    data_original_title = sub_elemento.get(tooltip_attr, "")
+                    if not data_original_title:
+                        # Fallback por si hay mezcla de atributos entre versiones.
+                        data_original_title = sub_elemento.get("data-bs-title", "") or sub_elemento.get("data-original-title", "")
                     
                     # Separar las líneas en cada `<br>`
                     lineas = data_original_title.split("<br>")
                     lineas = [BeautifulSoup(line, "lxml").get_text(strip=True) for line in lineas if line.strip()]
 
                     # Crear un diccionario con la información extraída
-                    fila = {"row_id": elemento_id, "class": clase}
+                    fila = {"row_id": elemento_id, "class": clase, "html_version": html_version}
                     
                     # Agregar cada línea como una columna
                     for i, linea in enumerate(lineas):
@@ -187,7 +205,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 # Título de la aplicación
-st.title("Visor de Datos ATurnos")
+st.title("Visor de Datos ATurnos · V2")
 # Barra lateral para la selección del archivo y opciones de filtrado
 st.sidebar.header("Opciones")
 
