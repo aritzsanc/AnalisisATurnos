@@ -1,10 +1,11 @@
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from bs4 import BeautifulSoup
 from pathlib import Path
 import re
+import html
  
 
 
@@ -60,7 +61,7 @@ def analiza_fichero(file) :
                     # Separar las líneas en cada `<br>`
                     lineas = data_original_title.split("<br>")
                     lineas = [
-                        BeautifulSoup(line, "html.parser").get_text(strip=True)
+                        re.sub(r"<[^>]+>", "", html.unescape(line)).strip()
                         for line in lineas
                         if line and line.strip()
                     ]
