@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from bs4 import BeautifulSoup
+from pathlib import Path
 import re
  
 
@@ -17,14 +18,7 @@ def analiza_fichero(file) :
 
         # Detecta la version del HTML segun el atributo del tooltip en las barras.
         has_bs_tooltip = soup.find(class_="progress-bar", attrs={"data-bs-title": True}) is not None
-        has_old_tooltip = soup.find(class_="progress-bar", attrs={"data-original-title": True}) is not None
-        if has_bs_tooltip and not has_old_tooltip:
-            html_version = "new"
-            tooltip_attr = "data-bs-title"
-        elif has_old_tooltip and not has_bs_tooltip:
-            html_version = "old"
-            tooltip_attr = "data-original-title"
-        elif has_bs_tooltip:
+        if has_bs_tooltip:
             html_version = "new"
             tooltip_attr = "data-bs-title"
         else:
@@ -79,6 +73,10 @@ def analiza_fichero(file) :
 
         # Crear un DataFrame a partir de la lista de diccionarios
         df = pd.DataFrame(data)
+
+        if df.empty or 'row_id' not in df.columns:
+            return True, pd.DataFrame()
+
         # Lista de columnas que deben estar presentes
         required_columns = [f"line_{i}" for i in range(1, 12)]
 
@@ -121,7 +119,8 @@ def analiza_fichero(file) :
         df['Inicio'] = pd.to_datetime(df['fecha'].astype(str) + " " + df['Inicio_str'], errors='coerce', format='%Y-%m-%d %H:%M')
         df['Fin'] = pd.to_datetime(df['fecha'].astype(str) + " " + df['Fin_str'], errors='coerce', format='%Y-%m-%d %H:%M')
 
-        df['metodo_ini'] = np.nan
+        df['metodo_ini'] = pd.Series(index=df.index, dtype='object')
+        df['metodo_fin'] = pd.Series(index=df.index, dtype='object')
 
         #Entradas sin marcador en linea_5
         mask = (df['line_2'].str.contains('Entrada', case=False, na=False)) & ~(df['line_5'].str.contains('Tipo', case=False, na=False))
@@ -328,7 +327,8 @@ else:
     st.write("Entra en la página de ATurnos")
     st.write("https://www.aturnos.com/puntos_detalle_trabajador")
     st.write("Selecciona las fechas de las que quieras procesar los fichajes")
-    st.image('./CapturaEjemplo.png', caption='Mi Imagen PNG', use_container_width=True)
+    ejemplo_path = Path(__file__).with_name("CapturaEjemplo.png")
+    st.image(str(ejemplo_path), caption='Mi Imagen PNG', use_container_width=True)
     st.write("Guarda la página web en tu ordenador (Ctrl+s)") 
     st.write("Carga el fichero usando el menu de la barra lateral")
      
