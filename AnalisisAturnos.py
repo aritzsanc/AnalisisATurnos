@@ -14,7 +14,7 @@ def analiza_fichero(file) :
         #with open(path, "r", encoding="utf-8") as file:
         contenido_html = file.read()
         # Analiza el HTML con BeautifulSoup
-        soup = BeautifulSoup(contenido_html, "lxml")
+        soup = BeautifulSoup(contenido_html, "html.parser")
 
         # Detecta la version del HTML segun el atributo del tooltip en las barras.
         has_bs_tooltip = soup.find(class_="progress-bar", attrs={"data-bs-title": True}) is not None
@@ -59,7 +59,11 @@ def analiza_fichero(file) :
                     
                     # Separar las líneas en cada `<br>`
                     lineas = data_original_title.split("<br>")
-                    lineas = [BeautifulSoup(line, "lxml").get_text(strip=True) for line in lineas if line.strip()]
+                    lineas = [
+                        BeautifulSoup(line, "html.parser").get_text(strip=True)
+                        for line in lineas
+                        if line and line.strip()
+                    ]
 
                     # Crear un diccionario con la información extraída
                     fila = {"row_id": elemento_id, "class": clase, "html_version": html_version}
@@ -75,7 +79,7 @@ def analiza_fichero(file) :
         df = pd.DataFrame(data)
 
         if df.empty or 'row_id' not in df.columns:
-            return True, pd.DataFrame()
+            return True, pd.DataFrame(), "El HTML cargado no contiene datos de fichajes reconocibles."
 
         # Lista de columnas que deben estar presentes
         required_columns = [f"line_{i}" for i in range(1, 12)]
@@ -184,12 +188,12 @@ def analiza_fichero(file) :
         df = df.drop(columns=columnas_a_eliminar)
         #print(df.head(50))
 
-        return False, df
+        return False, df, None
 
     except Exception as e:
         # En caso de error, devolvemos error = True y un DataFrame vacío
         print(f"Error al abrir o analizar el archivo: {e}")
-        return True, pd.DataFrame()  # Devuelve True para error y un DataFrame vacío#hasta aqui la función que analiza el fichero html descargado
+        return True, pd.DataFrame(), str(e)  # Devuelve True para error y un DataFrame vacío
 
 st.set_page_config(layout="wide")
 #Para que las tablas ocupe todo el espacio
@@ -214,12 +218,12 @@ uploaded_file = st.sidebar.file_uploader("Selecciona un archivo html", type=["ht
 # Crear el panel principal a la derecha
 if uploaded_file is not None:
     st.session_state.show_image = False
-    error, df = analiza_fichero(uploaded_file)
+    error, df, err_msg = analiza_fichero(uploaded_file)
     required_columns = ['class', 'tipo']
     missing_columns = [col for col in required_columns if col not in df.columns]
     print(missing_columns)
     if (df.empty) or (error==True) or (len(missing_columns) > 0):
-        st.subheader("El fichero cargado no es correcto. No contiene la información requerida")
+        st.error(f"El fichero cargado no es correcto o no contiene la información requerida. Detalle: {err_msg}")
     else :
         # Mostrar los datos en el panel derecho
         st.subheader("Datos cargados:")
